@@ -1,0 +1,32 @@
+inputs:
+  hostname:
+    type: string
+    description: Hostname
+    title: Hostname for VM
+resources:
+  Cloud_Machine_1:
+    type: Cloud.Machine
+    properties:
+      image: ubuntu_new
+      flavor: medium
+      networks:
+        - name: '${Cloud_Network_1.name}'
+      cloudConfig: |
+        #cloudconfig
+        repo_update: true
+        repo_upgrade: all
+        package_update: true
+        package_upgrade: all
+        packages:
+        - apache2
+        hostname: '${input.hostname}'
+        runcmd:
+         - echo root:changeme|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
+  Cloud_Network_1:
+    type: Cloud.Network
+    properties:
+      name: ''
+      networkType: existing
