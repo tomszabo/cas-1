@@ -55,7 +55,7 @@ resources:
     type: Cloud.Machine
     properties:
       name: mysql
-      image: ubuntu_new
+      image: ubuntu
       flavor: '${input.size}'
       networks:
         - name: '${WP-Network.name}'
@@ -85,7 +85,7 @@ resources:
     type: Cloud.Machine
     properties:
       name: wordpress
-      image: ubuntu_new
+      image: ubuntu
       count: 1
       flavor: small
       networks:
