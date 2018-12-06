@@ -7,7 +7,7 @@ resources:
   Cloud_Machine_1:
     type: Cloud.Machine
     properties:
-      image: ubuntu_new
+      image: ubuntu
       flavor: medium
       networks:
         - name: '${Cloud_Network_1.name}'
@@ -28,5 +28,5 @@ resources:
   Cloud_Network_1:
     type: Cloud.Network
     properties:
-      name: ''
+      name: vm_network
       networkType: existing
