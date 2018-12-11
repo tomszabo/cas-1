@@ -7,7 +7,7 @@ inputs:
     type: string
     encrypted: true
     title: Root Password
-    description: Root Pssword
+    description: Root Password
   novm:
     type: integer
     description: Number of VM's 1-5
