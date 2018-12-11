@@ -18,6 +18,14 @@ inputs:
     description: Size of VM's
     title: VM Size
     default: small
+  region:
+    type: string
+    description: Region
+    title: Region Tag Name
+    enum:
+      - 'region:vsphere'
+      - 'region:aws'
+    default: 'region:vsphere'
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine
@@ -28,6 +36,8 @@ resources:
       count: '${input.novm}'
       networks:
         - name: '${Cloud_Network_1.name}'
+      constraints:
+      - tag: '${input.region}'
       cloudConfig: |
         #cloudconfig
         repo_update: true
@@ -47,4 +57,5 @@ resources:
     properties:
       name: vm_network
       networkType: existing
+
 
