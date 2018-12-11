@@ -3,13 +3,29 @@ inputs:
     type: string
     description: Hostname
     title: Hostname for VM
+  novm:
+    type: integer
+    description: Number of VM's 1-5
+    title: No. of VM's
+    default: 1
+    maximum: 5
+  flavor:
+    type: string
+    enum:
+      - small
+      - medium
+      - large
+    description: Size of VM's
+    title: VM Size
+    default: small
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine
     properties:
       name: '${input.hostname}'
       image: ubuntu
-      flavor: medium
+      flavor: '${input.flavor}'
+      count: '${input.novm}'
       networks:
         - name: '${Cloud_Network_1.name}'
       cloudConfig: |
