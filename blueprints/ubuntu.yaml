@@ -37,15 +37,13 @@ resources:
       networks:
         - name: '${Cloud_Network_1.name}'
       constraints:
-      - tag: '${input.region}'
+        - tag: '${input.region}'
       cloudConfig: |
         #cloudconfig
         repo_update: true
         repo_upgrade: all
         package_update: true
         package_upgrade: all
-        packages:
-        - apache2
         hostname: '${input.hostname}'
         runcmd:
          - echo root:changeme|sudo chpasswd
@@ -57,5 +55,3 @@ resources:
     properties:
       name: vm_network
       networkType: existing
-
-
