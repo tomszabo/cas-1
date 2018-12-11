@@ -7,6 +7,7 @@ resources:
   Cloud_Machine_1:
     type: Cloud.Machine
     properties:
+      name: '${input.hostname}'
       image: ubuntu
       flavor: medium
       networks:
@@ -30,3 +31,4 @@ resources:
     properties:
       name: vm_network
       networkType: existing
+
