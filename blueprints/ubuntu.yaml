@@ -45,16 +45,16 @@ resources:
         - tag: '${input.region}'
       cloudConfig: |
         #cloudconfig
-        repo_update: true
-        repo_upgrade: all
-        package_update: true
-        package_upgrade: all
+        package:
+         - wget
+         - git
         hostname: '${input.hostname}'
         runcmd:
          - echo root:'${input.rootpassword}'|sudo chpasswd
          - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
          - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
          - systemctl restart sshd
+         - wget -O - https://raw.githubusercontent.com/rhjensen79/cas/master/scripts/wavefront_agent.sh | bash
   Cloud_Network_1:
     type: Cloud.Network
     properties:
