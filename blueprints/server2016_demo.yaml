@@ -1,10 +1,24 @@
-inputs: {}
+inputs: 
+ hostname:
+    type: string
+    description: Hostname
+    title: Hostname for VM
+ flavor:
+    type: string
+    enum:
+      - small
+      - medium
+      - large
+    description: Size of VM's
+    title: VM Size
+    default: small
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine
     properties:
+      name: '${input.hostname}'
       image: 'server2016'
-      flavor: 'medium'
+      flavor: '${input.flavor}'
       customizationSpec: 'SRV2016_AD'
       networks:
         - name: '${Cloud_Network_1.name}'
