@@ -60,3 +60,5 @@ resources:
     properties:
       name: vm_network
       networkType: existing
+      constraints:
+        - tag: '${input.region}'
