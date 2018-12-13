@@ -1,0 +1,15 @@
+inputs: {}
+resources:
+  Cloud_Machine_1:
+    type: Cloud.Machine
+    properties:
+      image: 'server2016'
+      flavor: 'medium'
+      customizationSpec: 'SRV2016_AD'
+      networks:
+        - name: '${Cloud_Network_1.name}'
+  Cloud_Network_1:
+    type: Cloud.Network
+    properties:
+      name: vm_network
+      networkType: existing
