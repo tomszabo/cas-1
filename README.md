@@ -5,6 +5,7 @@ Feel free to use whatever you want from them, but be aware, that they are for de
 Usefull links : 
 
 Cloud-init examples : https://cloudinit.readthedocs.io/en/latest/topics/examples.htm
+
 Cloud Assemply extensibility guide : https://docs.vmware.com/en/VMware-Cloud-Assembly/services/Using-and-Managing/GUID-AB23A540-37E7-4ECB-8E83-531B7AB4F250.html
 
 
