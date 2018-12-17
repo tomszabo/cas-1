@@ -30,6 +30,7 @@ inputs:
     enum:
       - 'region:vsphere'
       - 'region:aws'
+      - 'region:azure'
     default: 'region:vsphere'
 resources:
   Cloud_Machine_1:
