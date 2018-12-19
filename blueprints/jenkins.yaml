@@ -183,16 +183,16 @@ resources:
          - cd /root/.jenkins/
          - java -jar jenkins-cli.jar -s http&#58;//localhost&#58;8080/ install-plugin credentials -deploy
          - echo "Installed credentials plugins"
-         - echo &#39;jenkins.model.Jenkins.instance.securityRealm.createAccount("admin", "changeme")&#39; | java -jar jenkins-cli.jar -s http&#58;//localhost&#58;8080/ groovy =
+         - echo &#39;jenkins.model.Jenkins.instance.securityRealm.createAccount("admin", "'${input.rootpassword}'")&#39; | java -jar jenkins-cli.jar -s http&#58;//localhost&#58;8080/ groovy =
          - echo "Admin account created."
          - sed -i &#39;s,<authorizationStrategy class="hudson.security.AuthorizationStrategy\$Unsecured"/>,<authorizationStrategy class="hudson.security.FullControlOnceLoggedInAuthorizationStrategy">\n\t<denyAnonymousReadAccess>true</denyAnonymousReadAccess>  </authorizationStrategy>,g&#39; config.xml
          - java -jar jenkins-cli.jar -s http&#58;//localhost&#58;8080 restart
          - echo "Restarted Jenkins"
          - sleep 30s 
-         - CRUMB=\$(curl -s &#39;http&#58;//admin&#58;changeme@localhost&#58;8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,"&#58;",//crumb)&#39;)
+         - CRUMB=\$(curl -s &#39;http&#58;//admin&#58;'${input.rootpassword}'@localhost&#58;8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,"&#58;",//crumb)&#39;)
          - echo "Crumb issued"
          - echo \$CRUMB
-         - curl -H \$CRUMB -X POST &#39;http&#58;//admin&#58;changeme@localhost&#58;8080/credentials/store/system/domain/_/createCredentials&#39; --data-urlencode &#39;json={ ""&#58; "0", "credentials"&#58; { "scope"&#58; "GLOBAL", "id"&#58; "vmwCred", "username"&#58; "root", "password"&#58; "changeme", "description"&#58; "Credentials for slaves", "\$class"&#58; "com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"} }&#39;
+         - curl -H \$CRUMB -X POST &#39;http&#58;//admin&#58;'${input.rootpassword}'@localhost&#58;8080/credentials/store/system/domain/_/createCredentials&#39; --data-urlencode &#39;json={ ""&#58; "0", "credentials"&#58; { "scope"&#58; "GLOBAL", "id"&#58; "vmwCred", "username"&#58; "root", "password"&#58; "'${input.rootpassword}'", "description"&#58; "Credentials for slaves", "\$class"&#58; "com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"} }&#39;
          - EOM 
 
          - sed -i 's/\&#58;/:/g' /root/setup_jenkins.sh
@@ -240,16 +240,16 @@ resources:
          - echo "There are slaves here"
          - cd /root/.jenkins/;
          - wget http&#58;//localhost&#58;8080/jnlpJars/agent.jar
-         - CRUMB=\$(curl -s &#39;http&#58;//admin&#58;changeme@localhost&#58;8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,"&#58;",//crumb)&#39;)
+         - CRUMB=\$(curl -s &#39;http&#58;//admin&#58;'${input.rootpassword}'@localhost&#58;8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,"&#58;",//crumb)&#39;)
          - crum=\`echo \$CRUMB | cut -d&#39;&#58;&#39; -f 2\` 
          - echo \$crum
          - for i in \`seq 1 $SLAVE_COUNT\`;
          - do
          - nodeIP=\`head -\$i /root/node_addresses.txt | tail -1\`;
          - sed -i &#39;s/rasgulla/&#39;"\$nodeIP"&#39;/g&#39; /root/slaveConfig.xml;
-         - cat /root/slaveConfig.xml | java -jar jenkins-cli.jar -s http&#58;//admin&#58;changeme@localhost&#58;8080/ create-node slave_\$i; 
-         - secret_key=\$(curl -L -s -u admin&#58;changeme -H ".crumb&#58;\$CRUMB" -X GET http&#58;//localhost&#58;8080/computer/slave_\$i/slave-agent.jnlp | sed "s/.*<application-desc main-class=\"hudson.remoting.jnlp.Main\"><argument>\([a-z0-9]*\).*/\1/");
-         - java -jar agent.jar -jnlpUrl http&#58;//admin&#58;changeme@localhost&#58;8080/computer/slave_\$i/slave-agent.jnlp -secret \$secret_key &
+         - cat /root/slaveConfig.xml | java -jar jenkins-cli.jar -s http&#58;//admin&#58;'${input.rootpassword}'@localhost&#58;8080/ create-node slave_\$i; 
+         - secret_key=\$(curl -L -s -u admin&#58;'${input.rootpassword}' -H ".crumb&#58;\$CRUMB" -X GET http&#58;//localhost&#58;8080/computer/slave_\$i/slave-agent.jnlp | sed "s/.*<application-desc main-class=\"hudson.remoting.jnlp.Main\"><argument>\([a-z0-9]*\).*/\1/");
+         - java -jar agent.jar -jnlpUrl http&#58;//admin&#58;'${input.rootpassword}'@localhost&#58;8080/computer/slave_\$i/slave-agent.jnlp -secret \$secret_key &
          - sleep 10s
          - sed -i &#39;s/&#39;"\$nodeIP"&#39;/rasgulla/g&#39; /root/slaveConfig.xml;
          - done
@@ -264,8 +264,8 @@ resources:
          - /bin/cat <<EOM >$FILE
          - cd /root/.jenkins/;
          - rm jenkins-cli.jar*
-         - wget http&#58;//admin&#58;changeme@localhost&#58;8080/jnlpJars/jenkins-cli.jar
-         - java -jar jenkins-cli.jar -s http&#58;//admin&#58;changeme@localhost&#58;8080/ install-plugin ace-editor ant antisamy-markup-formatter apache-httpcomponents-client-4-api authentication-tokens bouncycastle-api branch-api build-timeout cloudbees-folder command-launcher credentials-binding credentials display-url-api docker-commons docker-workflow durable-task email-ext git-client git-server git github-api github-branch-source github gradle handlebars jackson2-api jdk-tool jquery-detached jsch junit ldap mailer mapdb-api matrix-auth matrix-project momentjs pam-auth pipeline-build-step pipeline-github-lib pipeline-graph-analysis pipeline-input-step pipeline-milestone-step pipeline-model-api pipeline-model-declarative-agent pipeline-model-definition pipeline-model-extensions pipeline-rest-api pipeline-stage-step pipeline-stage-tags-metadata pipeline-stage-view plain-credentials resource-disposer scm-api script-security ssh-credentials ssh-slaves structs subversion timestamper token-macro workflow-aggregator workflow-api workflow-basic-steps workflow-cps-global-lib workflow-cps workflow-durable-task-step workflow-job workflow-multibranch workflow-scm-step workflow-step-api workflow-support ws-cleanup -deploy
+         - wget http&#58;//admin&#58;'${input.rootpassword}'@localhost&#58;8080/jnlpJars/jenkins-cli.jar
+         - java -jar jenkins-cli.jar -s http&#58;//admin&#58;'${input.rootpassword}'@localhost&#58;8080/ install-plugin ace-editor ant antisamy-markup-formatter apache-httpcomponents-client-4-api authentication-tokens bouncycastle-api branch-api build-timeout cloudbees-folder command-launcher credentials-binding credentials display-url-api docker-commons docker-workflow durable-task email-ext git-client git-server git github-api github-branch-source github gradle handlebars jackson2-api jdk-tool jquery-detached jsch junit ldap mailer mapdb-api matrix-auth matrix-project momentjs pam-auth pipeline-build-step pipeline-github-lib pipeline-graph-analysis pipeline-input-step pipeline-milestone-step pipeline-model-api pipeline-model-declarative-agent pipeline-model-definition pipeline-model-extensions pipeline-rest-api pipeline-stage-step pipeline-stage-tags-metadata pipeline-stage-view plain-credentials resource-disposer scm-api script-security ssh-credentials ssh-slaves structs subversion timestamper token-macro workflow-aggregator workflow-api workflow-basic-steps workflow-cps-global-lib workflow-cps workflow-durable-task-step workflow-job workflow-multibranch workflow-scm-step workflow-step-api workflow-support ws-cleanup -deploy
          - EOM
          
          - sed -i 's/\&#58;/:/g' /root/install_plugins.sh
@@ -311,7 +311,7 @@ resources:
          - sudo bash /root/install_plugins.sh
          
          - sleep 10s
-         - java -jar /root/.jenkins/jenkins-cli.jar -s http://admin:changeme@localhost:8080 restart
+         - java -jar /root/.jenkins/jenkins-cli.jar -s http://admin:'${input.rootpassword}'@localhost:8080 restart
          
       networks:
         - name: '${Jenkins_Network.name}'
