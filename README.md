@@ -1,5 +1,7 @@
 The sole purpose of this repository, is to have a place to store VMware Cloud Automation blueprints.
 
+Most blueprints, are probably just copy's of the markedsplace blueprints, or from other sources, with minor or major changes, to fit my deployments.
+
 Feel free to use whatever you want from them, but be aware, that they are for demo purpose, and probably not fit for production.
 
 Usefull links : 
