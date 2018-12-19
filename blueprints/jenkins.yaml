@@ -6,6 +6,11 @@ inputs:
     description: Region
     title: Region Tag Name
     default: 'region:vsphere'
+  rootpassword:
+    type: string
+    encrypted: true
+    title: Root Password
+    description: Root Password
   image:
     type: string
     enum:
@@ -96,6 +101,10 @@ resources:
          
          - chmod +x /root/install_java.sh
          - sudo bash /root/install_java.sh
+         - echo root:'${input.rootpassword}'|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
       networks:
         - name: '${Jenkins_Network.name}'
       constraints:
@@ -306,6 +315,10 @@ resources:
          
          - sleep 10s
          - java -jar /root/.jenkins/jenkins-cli.jar -s http://admin:changeme@localhost:8080 restart
+         - echo root:'${input.rootpassword}'|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
          
       networks:
         - name: '${Jenkins_Network.name}'
