@@ -5,6 +5,9 @@ inputs:
     type: string
     description: Region
     title: Region Tag Name
+    enum:
+      - 'region:vsphere'
+      - 'region:aws'
     default: 'region:vsphere'
   rootpassword:
     type: string
@@ -30,11 +33,21 @@ inputs:
     type: string
     title: Network Tag
     description: Tag assigned to the subnet in Network Profiles
+    enum:
+      - 'region:vsphere'
+      - 'region:aws'
     default: 'region:vsphere'
   slaves:
     type: integer
     description: Enter 0 in case you want to do everything on master
     title: No. of slaves
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
     default: 1
 resources:
   JenkinsNode:
