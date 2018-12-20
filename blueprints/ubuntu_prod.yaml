@@ -3,6 +3,11 @@ inputs:
     type: string
     description: Hostname
     title: Hostname for VM
+  rootpassword:
+    type: string
+    encrypted: true
+    title: Root Password
+    description: Root Password
   novm:
     type: integer
     description: Number of VM's 1-5
@@ -18,14 +23,6 @@ inputs:
     description: Size of VM's
     title: VM Size
     default: small
-  region:
-    type: string
-    description: Region
-    title: Region Tag Name
-    enum:
-      - 'region:vsphere'
-      - 'region:aws'
-    default: 'region:vsphere'
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine
@@ -37,7 +34,7 @@ resources:
       networks:
         - name: '${Cloud_Network_1.name}'
       constraints:
-        - tag: '${input.region}'
+        - tag: 'region:vsphere'
       cloudConfig: |
         #cloudconfig
         repo_update: true
@@ -46,7 +43,7 @@ resources:
         package_upgrade: all
         hostname: '${input.hostname}'
         runcmd:
-         - echo root:changeme|sudo chpasswd
+         - echo root:'${input.rootpassword}'|sudo chpasswd
          - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
          - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
          - systemctl restart sshd
