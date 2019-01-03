@@ -2,15 +2,6 @@ name: UIBasicUC2
 iteration: 1
 description: More Complex BP with External Storage
 inputs:
-  env:
-    type: string
-    enum:
-      - 'env:dev'
-      - 'env:prod'
-      - 'env:test'
-    default: 'env:dev'
-    title: Environment
-    description: Target Environment
   size:
     type: string
     enum:
@@ -18,6 +9,15 @@ inputs:
       - medium
     description: Size of Nodes
     title: Database Tier Size
+  region:
+    type: string
+    description: Region
+    title: Region Tag Name
+    enum:
+      - 'region:vsphere'
+      - 'region:aws'
+      - 'region:azure'
+    default: 'region:vsphere'
   username:
     type: string
     minLength: 4
@@ -63,6 +63,8 @@ resources:
         authentication: usernamePassword
         username: '${input.username}'
         password: '${input.userpassword}'
+      constraints:
+        - tag: '${input.region}'
       cloudConfig: |
         #cloud-config
         repo_update: true
@@ -90,6 +92,8 @@ resources:
       flavor: small
       networks:
         - name: '${WP-Network.name}'
+      constraints:
+        - tag: '${input.region}'
       cloudConfig: |
         #cloud-config
         repo_update: true
