@@ -28,10 +28,11 @@ inputs:
     description: Region
     title: Region Tag Name
     enum:
-      - 'region:vsphere'
-      - 'region:aws'
-      - 'region:azure'
-    default: 'region:vsphere'
+      - 'region:copenhagen'
+      - 'region:frankfurt'
+      - 'region:stockholm'
+      - 'region:ireland'
+    default: 'region:copenhagen'
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine

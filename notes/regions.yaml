@@ -1,0 +1,10 @@
+ region:
+    type: string
+    description: Region
+    title: Region Tag Name
+    enum:
+      - 'region:copenhagen'
+      - 'region:frankfurt'
+      - 'region:stockholm'
+      - 'region:ireland'
+    default: 'region:copenhagen'
