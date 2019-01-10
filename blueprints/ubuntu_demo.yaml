@@ -41,8 +41,7 @@ resources:
       image: ubuntu
       flavor: '${input.flavor}'
       count: '${input.novm}'
-      networks:
-        - name: '${Cloud_Network_1.name}'
+      networks: []
       constraints:
         - tag: '${input.region}'
       cloudConfig: |
@@ -57,10 +56,3 @@ resources:
          - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
          - systemctl restart sshd
          - wget -O - https://raw.githubusercontent.com/rhjensen79/cas/master/scripts/wavefront_agent.sh | bash
-  Cloud_Network_1:
-    type: Cloud.Network
-    properties:
-      name: vm_network
-      networkType: existing
-      constraints:
-        - tag: '${input.region}'
