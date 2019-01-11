@@ -32,6 +32,7 @@ inputs:
       - 'region:frankfurt'
       - 'region:stockholm'
       - 'region:ireland'
+      - 'region:netherlands'
     default: 'region:copenhagen'
 resources:
   Cloud_Machine_1:
