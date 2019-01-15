@@ -9,15 +9,18 @@ inputs:
       - medium
     description: Size of Nodes
     title: Database Tier Size
+    default: small
   region:
     type: string
     description: Region
     title: Region Tag Name
     enum:
-      - 'region:vsphere'
-      - 'region:aws'
-      - 'region:azure'
-    default: 'region:vsphere'
+      - 'region:copenhagen'
+      - 'region:frankfurt'
+      - 'region:stockholm'
+      - 'region:ireland'
+      - 'region:netherlands'
+    default: 'region:copenhagen'
   username:
     type: string
     minLength: 4
@@ -25,12 +28,14 @@ inputs:
     pattern: '[a-z]+'
     title: Database Username
     description: Database Username
+    default: admin
   userpassword:
     type: string
     pattern: '[a-z0-9A-Z@#$]+'
     encrypted: true
     title: Database Password
     description: Database Password
+    default: changeme
   databaseDiskSize:
     type: number
     default: 4
