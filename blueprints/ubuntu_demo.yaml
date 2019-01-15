@@ -45,6 +45,9 @@ resources:
       networks: []
       constraints:
         - tag: '${input.region}'
+      tags:
+        - key: name
+          value: Linux
       cloudConfig: |
         #cloudconfig
         package:
