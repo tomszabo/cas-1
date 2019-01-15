@@ -1,9 +1,10 @@
-inputs: 
- hostname:
+inputs:
+  hostname:
     type: string
     description: Hostname
     title: Hostname for VM
- flavor:
+    default: srv2016
+  flavor:
     type: string
     enum:
       - small
@@ -12,18 +13,21 @@ inputs:
     description: Size of VM's
     title: VM Size
     default: small
+  Domain:
+    title: Domain
+    type: string
+    default: SRV2016_AD
+    enum:
+      - SRV2016
+      - SRV2016_AD
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine
     properties:
       name: '${input.hostname}'
-      image: 'server2016'
+      image: server2016
       flavor: '${input.flavor}'
-      customizationSpec: 'SRV2016_AD'
-      networks:
-        - name: '${Cloud_Network_1.name}'
-  Cloud_Network_1:
-    type: Cloud.Network
-    properties:
-      name: vm_network
-      networkType: existing
+      customizationSpec: SRV2016_AD
+      networks: []
+      constraints:
+        - tag: 'region:copenhagen'
