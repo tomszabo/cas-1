@@ -5,7 +5,7 @@ inputs:
     type: string
     description: Region
     title: Region Tag Name
-    default: 'region:vsphere'
+    default: 'region:copenhagen'
   image:
     type: string
     enum:
@@ -30,7 +30,7 @@ inputs:
     type: string
     title: Network Tag
     description: Tag assigned to the subnet in Network Profiles
-    default: 'region:vsphere'
+    default: 'region:copenhagen'
   cidr_network:
     type: string
     title: CIDR for Hello application deployed on Kubernetes
