@@ -7,4 +7,5 @@
       - 'region:frankfurt'
       - 'region:stockholm'
       - 'region:ireland'
+      - 'region:netherlands'
     default: 'region:copenhagen'
