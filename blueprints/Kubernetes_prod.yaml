@@ -1,0 +1,632 @@
+name: K8s-hello-vSphere
+description: Description
+inputs:
+  region:
+    type: string
+    description: Region
+    title: Region Tag Name
+    default: 'region:copenhagen'
+  image:
+    type: string
+    enum:
+      - ubuntu
+    description: Image/OS required
+    title: Image/OS
+    default: ubuntu
+  flavor:
+    type: string
+    enum:
+      - small
+      - medium
+    description: Size of Nodes
+    title: Node Size
+    default: small
+  ntp_server:
+    type: string
+    description: ntp server e.g. time.vmware.com
+    title: NTP Server
+    default: time.google.com
+  network:
+    type: string
+    title: Network Tag
+    description: Tag assigned to the subnet in Network Profiles
+    default: 'region:copenhagen'
+  cidr_network:
+    type: string
+    title: CIDR for Hello application deployed on Kubernetes
+    description: >
+      Provide CIDR (public IP range) for Hello application deployed on
+      Kubernetes.  The CIDR should include minimum 3 IP's for a single node.  It
+      should be public IP range if you want to access the Hello application from
+      a browser
+    default: 10.196.15.84/30
+resources:
+  MASTER:
+    type: Cloud.Machine
+    metadata:
+      layoutPosition:
+        - 0
+        - 0
+    properties:
+      name: master
+      flavor: '${input.flavor}'
+      image: '${input.image}'
+      cloudConfig: |
+        #cloudconfig
+        repo_update: true
+        repo_upgrade: all
+        package_update: true
+        package_upgrade: all
+
+        packages:
+         - attr
+         - sshpass
+         - jq
+         - ntp
+         - docker.io
+         - wget
+         - openssh-server
+
+        runcmd:
+         - echo root:changeme|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
+         
+         - FILE="/root/checkHostName.sh"
+         - /bin/cat <<EOM >$FILE
+         - node_ip=\`ifconfig \$(route | grep '^default' | grep -o '[^ ]*\$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1\`
+         - ip=\`dig -x \$node_ip +short\`
+         - host_name="\$(echo \$ip | sed 's/\(.*\)./\1/')"
+         - host=\$(hostname)
+         - if [[ "\$host_name" == \$host* ]]; then
+         - echo \$host
+         - else
+         - echo \$host_name > /etc/hostname
+         - cat /etc/hostname
+         - hostnamectl set-hostname \$host_name
+         - hostname
+         - echo \$node_ip \$host_name >> /etc/hosts
+         - fi
+         - EOM
+
+         - chmod +x /root/checkHostName.sh
+         - sudo /root/checkHostName.sh
+         
+         - FILE="/root/master_node.sh"                                                      
+         - /bin/cat <<EOM >$FILE                                                            
+         - rm -rf /var/lib/kubelet/*                                                        
+         - echo "rm -rf /var/lib/kubelet/*" > /tmp/join_node.sh                             
+         - sleep 60                                                                         
+         - echo "executing kubeadm init --pod-network-cidr=10.244.0.0/16 > /tmp/tmp_join_node.sh"     
+         - kubeadm init --pod-network-cidr=10.244.0.0/16 > /tmp/tmp_join_node.sh #some_issue
+         - sleep 30
+         - cat "/tmp/tmp_join_node.sh" | grep "kubeadm join" >> /tmp/join_node.sh           
+         - echo "executed /tmp/tmp_join_node.sh"
+         - rm -rf "/tmp/tmp_join_node.sh"
+         - echo "executed rm -rf tmp_join_node.sh"                                          
+         - rm -rf \$HOME/.kube
+         - echo "executing rm .kube"                                                        
+         - mkdir -p \$HOME/.kube
+         - echo "executing mkdir .kube"                                                     
+         - sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config                        
+         - echo "executing cp admin.conf"
+         - sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config                               
+         - echo "executing iptables"
+         - sudo iptables -P FORWARD ACCEPT                                                  
+         - sleep 30
+         - sysctl net.bridge.bridge-nf-call-iptables=1                                      
+         - echo "executing sysctl"
+         - kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
+         - sleep 30
+         - echo "executing kubectl apply"                                                   
+         - kubectl create clusterrolebinding permissive-binding \                           
+         - --clusterrole=cluster-admin \
+         - --user=admin \ 
+         - --user=kubelet \
+         - --group=system:serviceaccounts                                                   
+         - sleep 30
+         - echo "executing kubectl create"                                                  
+         - kubectl get pods --namespace=kube-system                                         
+         - sleep 30
+         - echo "executing kubectl get pods"
+         - EOM
+
+         - chmod 700 /root/master_node.sh
+         
+         - FILE="/root/podsStatus.sh"
+         - /bin/cat <<EOM >$FILE
+         - beforeJoin=\$(kubectl get po --all-namespaces | wc -l)
+         - beforeJoin=\$((\$beforeJoin-1))
+         - afterJoin=0
+         - echo "While loop started"
+         - while(("\$beforeJoin" != "\$afterJoin"))
+         - do
+         - OUTPUT=\$(kubectl get po --all-namespaces | grep -i "Running" | wc -l)
+         - afterJoin=\$OUTPUT
+         - echo "\\\$beforeJoin  \$beforeJoin"  
+         - echo "\\\$afterJoin \$afterJoin"
+         - echo "\\\$OUTPUT \$OUTPUT"
+         - sleep 30
+         - beforeJoin=\$(kubectl get po --all-namespaces | wc -l)
+         - beforeJoin=\$((\$beforeJoin-1))
+         - done
+         - echo "While loop Ended"
+         - EOM
+         
+         - chmod 700 /root/podsStatus.sh
+         
+         - FILE="/root/podsStatus_running.sh"
+         - /bin/cat <<EOM >$FILE
+         - beforeHelloWorld=\$(kubectl get po --all-namespaces | wc -l)
+         - beforeHelloWorld=\$((\$beforeHelloWorld-1))
+         - afterHelloWorld=0
+         - while(("\$beforeHelloWorld" != "\$afterHelloWorld"))
+         - do
+         - OUTPUT=\$(kubectl get po --all-namespaces | grep -i "Running" | wc -l)
+         - afterHelloWorld=\$OUTPUT
+         - sleep 30
+         - cnt=0
+         - pods_not_running_state=( \$(kubectl get pods -n kube-system -o template --template="{{range.items}}{{if ne .status.phase \"Running\"}}{{.metadata.name}} {{end}}{{end}}" | tr " " "\n" | grep -i "kube-keepalived-vip") )
+         - for pod in &#36;{pods_not_running_state [@]}
+         - do
+         - cnt=\$((\$cnt+1))
+         - kubectl delete pod \$pod -n kube-system
+         - done
+         - if [ \$cnt -ne 0 ]
+         - then
+         - sleep 30
+         - fi
+         - beforeHelloWorld=\$(kubectl get po --all-namespaces | wc -l)
+         - beforeHelloWorld=\$((\$beforeHelloWorld-1))
+         - echo "\\\$beforeHelloWorld \$beforeHelloWorld"
+         - echo "\\\$afterHelloWorld \$afterHelloWorld"
+         - echo "if never matching, verify /root/keepalived-cloud-provider.yaml updated with cidr value"
+         - done
+         - EOM
+         
+         - sed -i 's/&#36;/$/g' $FILE
+         - chmod 700 /root/podsStatus_running.sh
+         
+         - FILE="/root/keepalived_ready.sh"
+         - /bin/cat <<EOM >$FILE
+         - kacp=0
+         - while((\$kacp<=0))
+         - do
+         - OUTPUT=\$(kubectl get po --all-namespaces | grep -i keepalived-cloud-provider | grep -i "Running" | wc -l)
+         - kacp=\$OUTPUT
+         - sleep 30
+         - done
+         - EOM
+         
+         - chmod 700 /root/keepalived_ready.sh
+         
+         - FILE="/root/create_keepalived.sh"
+         - /bin/cat <<EOM >$FILE
+         - cp /root/kube-controller-manager.yaml /etc/kubernetes/manifests/kube-controller-manager.yaml
+         - sed -i "s|10.134.88.224/29|${input.cidr_network}|g" /root/keepalived-cloud-provider.yaml
+         - echo "***create -f /root/keepalived-cloud-provider.yaml execution status***" >> /root/k8sinstallation_status.log
+         - kubectl create -f /root/keepalived-cloud-provider.yaml  >> /root/k8sinstallation_status.log
+         - EOM
+
+         - chmod 700 /root/create_keepalived.sh
+
+         - FILE="/root/vip-daemonset.yaml"
+         - /bin/cat <<EOM >$FILE
+         - 'apiVersion: extensions/v1beta1'
+         - 'kind: DaemonSet'
+         - 'metadata:'
+         - ' name: kube-keepalived-vip'
+         - ' namespace: kube-system'
+         - 'spec:'
+         - ' template:'
+         - '   metadata:'
+         - '     labels:'
+         - '       name: kube-keepalived-vip'
+         - '   spec:'
+         - '     hostNetwork: true'
+         - '     containers:'
+         - '       - image: soumyapanigrahi/kubenix-keealived-vip'
+         - '         name: kube-keepalived-vip'
+         - '         imagePullPolicy: Always'
+         - '         securityContext:'
+         - '           privileged: true'
+         - '         volumeMounts:'
+         - '           - mountPath: /lib/modules'
+         - '             name: modules'
+         - '             readOnly: true'
+         - '           - mountPath: /dev'
+         - '             name: dev'
+         - '         # use downward API'
+         - '         env:'
+         - '           - name: POD_NAME'
+         - '             valueFrom:'
+         - '               fieldRef:'
+         - '                 fieldPath: metadata.name'
+         - '           - name: POD_NAMESPACE'
+         - '             valueFrom:'
+         - '               fieldRef:'
+         - '                 fieldPath: metadata.namespace'
+         - '         # to use unicast'
+         - '         args:'
+         - '         - --services-configmap=kube-system/vip-configmap'
+         - '         # unicast uses the ip of the nodes instead of multicast'
+         - '         # this is useful if running in cloud providers (like AWS)'
+         - '         #- --use-unicast=true'
+         - '     volumes:'
+         - '       - name: modules'
+         - '         hostPath:'
+         - '           path: /lib/modules'
+         - '       - name: dev'
+         - '         hostPath:'
+         - '           path: /dev'
+         - '     nodeSelector:'
+         - '       # type: worker # adjust this to match your worker nodes'
+         - '---'
+         - 'apiVersion: v1'
+         - 'kind: ConfigMap'
+         - 'metadata:'
+         - ' name: vip-configmap'
+         - ' namespace: kube-system'
+         - 'data:'
+         - EOM
+         
+         - FILE="/root/keepalived-cloud-provider.yaml"
+         - /bin/cat <<EOM >$FILE
+         - 'apiVersion: apps/v1beta1'
+         - 'kind: Deployment'
+         - 'metadata:'
+         - '  labels:'
+         - '    app: keepalived-cloud-provider'
+         - '  name: keepalived-cloud-provider'
+         - '  namespace: kube-system'
+         - 'spec:'
+         - '  replicas: 1'
+         - '  revisionHistoryLimit: 2'
+         - '  selector:'
+         - '    matchLabels:'
+         - '      app: keepalived-cloud-provider'
+         - '  strategy:'
+         - '    type: RollingUpdate'
+         - '  template:'
+         - '    metadata:'
+         - '      annotations:'
+         - '        scheduler.alpha.kubernetes.io/critical-pod: ""'
+         - '      labels:'
+         - '        app: keepalived-cloud-provider'
+         - '    spec:'
+         - '      containers:'
+         - '      - name: keepalived-cloud-provider'
+         - '        image: soumyapanigrahi/kubenix-cloud-provider'
+         - '        imagePullPolicy: IfNotPresent'
+         - '        env:'
+         - '        - name: KEEPALIVED_NAMESPACE'
+         - '          value: kube-system'
+         - '        - name: KEEPALIVED_CONFIG_MAP'
+         - '          value: vip-configmap'
+         - '        - name: KEEPALIVED_SERVICE_CIDR'
+         - '          value: 10.134.88.224/29 '
+         - '        volumeMounts:'
+         - '        - name: certs'
+         - '          mountPath: /etc/ssl/certs'
+         - '        resources:'
+         - '          requests:'
+         - '            cpu: 200m'
+         - '      tolerations:'
+         - '      - key: CriticalAddonsOnly'
+         - '        operator: Exists'
+         - '      volumes:'
+         - '      - name: certs'
+         - '        hostPath:'
+         - '          path: /etc/ssl/certs'
+         - EOM
+         
+         - FILE="/root/keepalived_ready.sh"
+         - /bin/cat <<EOM >$FILE
+         - kacp=0
+         - while((\$kacp<=0))
+         - do
+         - OUTPUT=\$(kubectl get po --all-namespaces | grep -i keepalived-cloud-provider | grep -i "Running" | wc -l)
+         - kacp=\$OUTPUT
+         - sleep 30
+         - done
+         - EOM
+         
+         - FILE="/root/kube-controller-manager.yaml"
+         - /bin/cat <<EOM >$FILE
+         - 'apiVersion: v1'
+         - 'kind: Pod'
+         - 'metadata:'
+         - '  annotations:'
+         - '    scheduler.alpha.kubernetes.io/critical-pod: ""'
+         - '  creationTimestamp: null'
+         - '  labels:'
+         - '    component: kube-controller-manager'
+         - '    tier: control-plane'
+         - '  name: kube-controller-manager'
+         - '  namespace: kube-system'
+         - 'spec:'
+         - '  containers:'
+         - '  - command:'
+         - '    - kube-controller-manager'
+         - '    - --address=127.0.0.1'
+         - '    - --controllers=*,bootstrapsigner,tokencleaner'
+         - '    - --root-ca-file=/etc/kubernetes/pki/ca.crt'
+         - '    - --service-account-private-key-file=/etc/kubernetes/pki/sa.key'
+         - '    - --cluster-signing-key-file=/etc/kubernetes/pki/ca.key'
+         - '    - --leader-elect=true'
+         - '    - --use-service-account-credentials=true'
+         - '    - --kubeconfig=/etc/kubernetes/controller-manager.conf'
+         - '    - --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt'
+         - '    - --allocate-node-cidrs=true'
+         - '    - --cluster-cidr=10.244.0.0/16'
+         - '    - --node-cidr-mask-size=24'
+         - '    - --cloud-provider=external'
+         - '    image: gcr.io/google_containers/kube-controller-manager-amd64:v1.8.6'
+         - '    livenessProbe:'
+         - '      failureThreshold: 8'
+         - '      httpGet:'
+         - '        host: 127.0.0.1'
+         - '        path: /healthz'
+         - '        port: 10252'
+         - '        scheme: HTTP'
+         - '      initialDelaySeconds: 15'
+         - '      timeoutSeconds: 15'
+         - '    name: kube-controller-manager'
+         - '    resources:'
+         - '      requests:'
+         - '        cpu: 200m'
+         - '    volumeMounts:'
+         - '    - mountPath: /etc/kubernetes/pki'
+         - '      name: k8s-certs'
+         - '      readOnly: true'
+         - '    - mountPath: /etc/ssl/certs'
+         - '      name: ca-certs'
+         - '      readOnly: true'
+         - '    - mountPath: /etc/kubernetes/controller-manager.conf'
+         - '      name: kubeconfig'
+         - '      readOnly: true'
+         - '    - mountPath: /usr/libexec/kubernetes/kubelet-plugins/volume/exec'
+         - '      name: flexvolume-dir'
+         - '  hostNetwork: true'
+         - '  volumes:'
+         - '  - hostPath:'
+         - '      path: /etc/kubernetes/pki'
+         - '      type: DirectoryOrCreate'
+         - '    name: k8s-certs'
+         - '  - hostPath:'
+         - '      path: /etc/ssl/certs'
+         - '      type: DirectoryOrCreate'
+         - '    name: ca-certs'
+         - '  - hostPath:'
+         - '      path: /etc/kubernetes/controller-manager.conf'
+         - '      type: FileOrCreate'
+         - '    name: kubeconfig'
+         - '  - hostPath:'
+         - '      path: /usr/libexec/kubernetes/kubelet-plugins/volume/exec'
+         - '      type: DirectoryOrCreate'
+         - '    name: flexvolume-dir'
+         - 'status: {}'
+         - EOM
+         
+         - echo "server ${input.ntp_server} iburst" >> /etc/ntp.conf
+         - systemctl restart ntp.service
+         - systemctl enable ntp.service
+         - systemctl restart ntp.service
+         - swapoff -a
+         - sed -i 's/\(^.*swap.*$\)/#\1/g'  /etc/fstab
+         - mount -a  # instead of reboot
+         - systemctl enable rc-local
+         - apt-get update && apt-get install -y apt-transport-https
+         - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+         - echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
+         - apt-get update
+         - apt-get install -qy kubelet=1.9.6-00 kubectl=1.9.6-00 kubeadm=1.9.6-00
+         - sed -i 's|#net.ipv4.ip_forward=1|net.ipv4.ip_forward=1|g'  /etc/sysctl.conf
+         - apt-get update
+         - sysctl -p /etc/sysctl.conf
+         - /etc/init.d/procps restart
+         - echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+         - echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections
+         - apt-get install -y iptables-persistent
+         - iptables -P FORWARD ACCEPT
+         - iptables-save > /etc/iptables/rules.v4
+         - iptables-save > /etc/iptables/rules.v6
+         - modprobe dm_snapshot
+         - modprobe dm_mirror
+         - modprobe dm_thin_pool
+         - service rsyslog stop
+         - bash -c 'echo "test -f /etc/ssh/ssh_host_dsa_key || dpkg-reconfigure openssh-server" > /etc/rc.local'
+         - bash -c 'echo "exit 0" >> /etc/rc.local'
+         - rm -vf /var/lib/dhcp/*.leases*
+         
+      networks:
+        - name: '${Kubernetes_Network.name}'
+      constraints:
+        - tag: '${input.region}'
+  NODE:
+    type: Cloud.Machine
+    metadata:
+      layoutPosition:
+        - 0
+        - 1
+    properties:
+      name: node
+      flavor: '${input.flavor}'
+      image: '${input.image}'
+      cloudConfig: |
+        #cloudconfig
+        repo_update: true
+        repo_upgrade: all
+        package_update: true
+        package_upgrade: all
+
+        packages:
+         - attr
+         - sshpass
+         - jq
+         - ntp
+         - docker.io
+         - wget
+         - openssh-server
+         
+        runcmd:
+         - echo root:changeme|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
+         
+         - FILE="/root/checkHostName.sh"
+         - /bin/cat <<EOM >$FILE
+         - node_ip=\`ifconfig \$(route | grep '^default' | grep -o '[^ ]*\$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1\`
+         - ip=\`dig -x \$node_ip +short\`
+         - host_name="\$(echo \$ip | sed 's/\(.*\)./\1/')"
+         - host=\$(hostname)
+         - if [[ "\$host_name" == \$host* ]]; then
+         - echo \$host
+         - else
+         - echo \$host_name > /etc/hostname
+         - cat /etc/hostname
+         - hostnamectl set-hostname \$host_name
+         - hostname
+         - echo \$node_ip \$host_name >> /etc/hosts
+         - fi
+         - EOM
+
+         - chmod +x /root/checkHostName.sh
+         - sudo /root/checkHostName.sh
+         
+         - echo "server ${input.ntp_server} iburst" >> /etc/ntp.conf
+         - systemctl restart ntp.service
+         - systemctl enable ntp.service
+         - systemctl restart ntp.service
+         - swapoff -a
+         - sed -i 's/\(^.*swap.*$\)/#\1/g'  /etc/fstab
+         - mount -a  # instead of reboot
+         - systemctl enable rc-local
+         - apt-get update && apt-get install -y apt-transport-https
+         - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+         - echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
+         - apt-get update
+         - apt-get install -qy kubelet=1.9.6-00 kubectl=1.9.6-00 kubeadm=1.9.6-00
+         - sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g'  /etc/sysctl.conf
+         - apt-get update
+         - sysctl -p /etc/sysctl.conf
+         - /etc/init.d/procps restart
+         - echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+         - echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections
+         - apt-get install -y iptables-persistent
+         - iptables -P FORWARD ACCEPT
+         - iptables-save > /etc/iptables/rules.v4
+         - iptables-save > /etc/iptables/rules.v6
+         - modprobe dm_snapshot
+         - modprobe dm_mirror
+         - modprobe dm_thin_pool
+         - service rsyslog stop
+         - bash -c 'echo "test -f /etc/ssh/ssh_host_dsa_key || dpkg-reconfigure openssh-server" > /etc/rc.local'
+         - bash -c 'echo "exit 0" >> /etc/rc.local'
+         - rm -vf /var/lib/dhcp/*.leases*
+         
+      networks:
+        - name: '${Kubernetes_Network.name}'
+      constraints:
+        - tag: '${input.region}'
+  JUMPHOST:
+    type: Cloud.Machine
+    metadata:
+      layoutPosition:
+        - 0
+        - 2
+    properties:
+      name: jumphost
+      flavor: '${input.flavor}'
+      image: '${input.image}'
+      count: 1
+      cloudConfig: |
+        #cloudconfig
+        repo_update: true
+        repo_upgrade: all
+        package_update: true
+        package_upgrade: all
+
+        packages:
+         - sshpass
+         
+        runcmd:
+         - echo root:changeme|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
+         
+         - FILE="/root/checkHostName.sh"
+         - /bin/cat <<EOM >$FILE
+         - node_ip=\`ifconfig \$(route | grep '^default' | grep -o '[^ ]*\$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1\`
+         - ip=\`dig -x \$node_ip +short\`
+         - host_name="\$(echo \$ip | sed 's/\(.*\)./\1/')"
+         - host=\$(hostname)
+         - if [[ "\$host_name" == \$host* ]]; then
+         - echo \$host
+         - else
+         - echo \$host_name > /etc/hostname
+         - cat /etc/hostname
+         - hostnamectl set-hostname \$host_name
+         - hostname
+         - echo \$node_ip \$host_name >> /etc/hosts
+         - fi
+         - EOM
+
+         - chmod +x /root/checkHostName.sh
+         - sudo /root/checkHostName.sh
+         
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} '/root/master_node.sh'
+         - sshpass -p changeme scp  -o "StrictHostKeyChecking no" root@${MASTER.address}:/tmp/join_node.sh /tmp/
+         
+         - FILE="/root/run_node.sh"
+         - /bin/cat <<EOM >$FILE
+         - password=\$1
+         - sed -i 's/\[//g'  /root/node_addresses.txt
+         - sed -i 's/\]//g' /root/node_addresses.txt
+         - value=\`cat /root/node_addresses.txt\`
+         - arr=\$(echo \$value | tr "," "\n")
+         - count=1
+         - for node in \$arr
+         - do
+         - echo "\"\$node\""
+         - sshpass -p \$password  scp  -o "StrictHostKeyChecking no" /tmp/join_node.sh root@\$node:/tmp/
+         - sshpass -p \$password  ssh  -o "StrictHostKeyChecking no" root@\$node 'chmod 700 /tmp/join_node.sh;/tmp/join_node.sh'
+         - done
+         - EOM
+         
+         - chmod 700 /root/run_node.sh
+         
+         - echo "${NODE.address}" > /root/node_addresses.txt
+         - /root/run_node.sh changeme
+         
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} '/root/podsStatus.sh  >> /root/k8sinstallation_status.log'
+         
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} 'echo "***kubectl create -f /root/vip-daemonset.yaml execution status***"  >> /root/k8sinstallation_status.log;kubectl create -f /root/vip-daemonset.yaml >> /root/k8sinstallation_status.log'
+         
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} '/root/create_keepalived.sh'
+         
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} 'echo "***keepalived_ready.sh execution status***"  >> k8sinstallation_status.log;/root/keepalived_ready.sh >> k8sinstallation_status.log'
+         
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} 'echo "***Web Application Setup execution status***"  >> k8sinstallation_status.log'
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} 'kubectl run hello-world-2 --replicas=2 --labels="run=load-balancer-example-2" --image=gcr.io/google-samples/node-hello:1.0  --port=8080 >> k8sinstallation_status.log'
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} 'kubectl get pods --all-namespaces >> k8sinstallation_status.log;kubectl get replicasets --selector="run=load-balancer-example-2" >> k8sinstallation_status.log'
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} 'kubectl expose rs hello-world-2-75474bc577 --type="LoadBalancer" --name="hello-world-svc" >> k8sinstallation_status.log'
+         - sshpass -p changeme ssh -o StrictHostKeyChecking=no root@${MASTER.address} 'kubectl get svc --all-namespaces >> /root/k8sinstallation_status.log'
+      networks:
+        - name: '${Kubernetes_Network.name}'
+      constraints:
+        - tag: '${input.region}'
+  Kubernetes_Network:
+    type: Cloud.Network
+    metadata:
+      layoutPosition:
+        - 1
+        - 0
+    properties:
+      name: Kubernetes_Network
+      networkType: existing
+      constraints:
+        - tag: '${input.network}'
