@@ -3,14 +3,25 @@ inputs:
     type: string
     description: Hostname
     title: Hostname for VM
+  notify:
+   type: string
+   title: Notify
+   description: Notify when deployment is finished
+   enum:
+    - 'yes'
+    - 'no'
+   default: 'yes'
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine
     properties:
+      notify: '${input.notify}'
       image: ubuntu
       flavor: medium
       networks:
         - name: '${Cloud_Network_1.name}'
+      cloudConfigSettings:
+        phoneHomeShouldWait: 'yes'
       cloudConfig: |
         #cloudconfig
         repo_update: true
@@ -36,8 +47,6 @@ resources:
          - echo "ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2375 -H unix://var/run/docker.sock" >> /etc/systemd/system/docker.service.d/docker.conf
          - sudo systemctl daemon-reload
          - sudo systemctl restart docker
-         
-         
   Cloud_Network_1:
     type: Cloud.Network
     properties:
