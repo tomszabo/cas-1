@@ -34,10 +34,19 @@ inputs:
       - 'region:ireland'
       - 'region:netherlands'
     default: 'region:copenhagen'
+  notify:
+   type: string
+   title: Notify
+   description: Notify when deployment is finished
+   enum:
+    - 'yes'
+    - 'no'
+   default: 'yes'
 resources:
   Cloud_Machine_1:
     type: Cloud.Machine
     properties:
+      notify: '${input.notify}'
       name: '${input.hostname}'
       image: ubuntu
       flavor: '${input.flavor}'
