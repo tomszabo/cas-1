@@ -1,0 +1,298 @@
+inputs:
+  region:
+    type: string
+    title: Region Tag Name
+    default: 'region:copenhagen'
+  size:
+    type: string
+    enum:
+      - micro
+      - small
+    description: Size of Nodes
+    title: Flavor
+    default: small
+  image:
+    type: string
+    description: Image/OS required
+    title: Image/OS
+    enum:
+      - ubuntu
+    default: ubuntu
+  mysql_username:
+    type: string
+    title: Magento Database UserName
+    description: username of magento database
+    default: magento_user
+  admin_username:
+    type: string
+    title: Magento Admin UserName
+    description: admin username(without space)
+    default: admin
+  domain_server:
+    type: string
+    title: Domain/Server Name
+    description: Enter server name for magento
+  network:
+    type: string
+    title: Network Capability tag
+    default: 'region:copenhagen'
+resources:
+  SQL:
+    type: Cloud.Machine
+    properties:
+      name: MagentoSQL
+      flavor: '${input.size}'
+      image: '${input.image}'
+      count: 2
+      cloudConfig: |
+        #cloudconfig
+        repo_update: true
+        repo_upgrade: all
+        package_update: true
+        package_upgrade: all
+
+        packages:
+         - libaio1
+         - wget
+         - dpkg
+
+        runcmd:
+         - echo root:changeme|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - service sshd restart
+
+         - node_ip=`ifconfig $(route | grep '^default' | grep -o '[^ ]*$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1`;file_suffix=`date +'%Y%m%d-%H%M%S%s'`;node_host=`hostname`;echo "$node_ip $node_host" >> /root/Node1.txt;echo "$node_host" >>/root/NodeHost1.txt
+
+         - FILE="/root/checkHostName.sh"
+         - /bin/cat <<EOM >$FILE
+         - node_ip=\`host myip.opendns.com resolver1.opendns.com | grep "myip.opendns.com has" | awk '{print \$4}'\`;
+         - if [ \$node_ip ]; then
+            echo \$node_ip > /root/privateOrpublic.txt;
+           else
+            echo \$node_ip > /root/privateOrpublic.txt;
+            node_ip=\`ifconfig \$(route | grep '^default' | grep -o '[^ ]*\$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1\`;
+            ip=\`dig -x \$node_ip +short\`;
+            host_name=\$(basename \$ip .);
+            echo \$host_name > /etc/hostname;
+            cat /etc/hostname;
+            hostnamectl set-hostname \$host_name;
+            hostname;
+            echo \$node_ip \$host_name >> /etc/hosts;
+           fi
+         - EOM
+
+         - chmod +x /root/checkHostName.sh
+         - sudo /root/checkHostName.sh
+         
+         - wget http://ftp.airnet.ne.jp/mirror/mysql/Downloads/MySQL-Cluster-7.4/mysql-cluster-gpl-7.4.11-debian7-x86_64.deb && dpkg -i mysql-cluster-gpl-7.4.11-debian7-x86_64.deb
+                  
+         - mkdir -p /usr/local/mysql/data
+         
+      networks:
+        - name: '${Magento_Network.name}'
+      constraints:
+        - tag: '${input.region}'
+  MagentoVM:
+    type: Cloud.Machine
+    properties:
+      flavor: '${input.size}'
+      image: '${input.image}'
+      count: 1
+      cloudConfig: |
+        #cloud-config
+        repo_update: true
+        repo_upgrade: all
+        package_update: true
+        package_upgrade: all
+
+        packages:
+         - sshpass
+         - libaio1
+         
+        runcmd:
+         - echo root:changeme|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
+         
+         - FILE="/root/checkHostName.sh"
+         - /bin/cat <<EOM >$FILE
+         - node_ip=\`host myip.opendns.com resolver1.opendns.com | grep "myip.opendns.com has" | awk '{print \$4}'\`;
+         - if [ \$node_ip ]; then
+            echo \$node_ip > /root/privateOrpublic.txt;
+           else
+            echo \$node_ip > /root/privateOrpublic.txt;
+            node_ip=\`ifconfig \$(route | grep '^default' | grep -o '[^ ]*\$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1\`;
+            ip=\`dig -x \$node_ip +short\`;
+            host_name=\$(basename \$ip .);
+            echo \$host_name > /etc/hostname;
+            cat /etc/hostname;
+            hostnamectl set-hostname \$host_name;
+            hostname;
+            echo \$node_ip \$host_name >> /etc/hosts;
+           fi
+         - EOM
+
+         - chmod +x /root/checkHostName.sh
+         - sudo /root/checkHostName.sh
+         
+         - echo "${SQL.address}" >> /root/node_addresses.txt
+         - sed -i 's/\[//g' /root/node_addresses.txt
+         - sed -i 's/\]//g' /root/node_addresses.txt
+         
+         - echo "manager_ip=`ifconfig $(route | grep '^default' | grep -o '[^ ]*$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1`;file_suffix=`date +'%Y%m%d-%H%M%S%s'`;manager_host=`hostname`;echo \$manager_ip \$manager_host >> /root/Manager.txt;echo \$manager_host >> /root/ManagerHost.txt" >> /root/config_ips.sh
+         - echo "value=`cat /root/node_addresses.txt`" >> /root/config_ips.sh
+         - echo "arr=\$(echo \$value | tr \",\" \"\n\")" >> /root/config_ips.sh
+         - echo "var=1" >> /root/config_ips.sh
+         - echo "for node in \$arr" >> /root/config_ips.sh
+         - echo "do" >> /root/config_ips.sh
+         - echo "    sshpass -p 'changeme' scp -o StrictHostKeyChecking=no root@\$node:/root/Node1.txt /root/Node\$var.txt" >> /root/config_ips.sh
+         - echo "    sshpass -p 'changeme' scp -o StrictHostKeyChecking=no root@\$node:/root/NodeHost1.txt /root/NodeHost\$var.txt" >> /root/config_ips.sh
+         - echo "    sshpass -p 'changeme' ssh -o StrictHostKeyChecking=no root@\$node 'echo \"[mysql_cluster]\" >> /etc/my.cnf && echo ndb-connectstring='\$manager_host' >> /etc/my.cnf'" >> /root/config_ips.sh
+         - echo "    sshpass -p 'changeme' ssh -o StrictHostKeyChecking=no root@\$node \"systemctl enable rc-local.service && sed -i '14i /opt/mysql/server-5.6/bin/ndbd' /etc/rc.local\"" >> /root/config_ips.sh
+         - echo "    cat /root/Node\$var.txt >> /root/AllIps.txt" >> /root/config_ips.sh
+         - echo "    cat /root/NodeHost\$var.txt >> /root/NodeHosts.txt" >>/root/config_ips.sh
+         - echo "    var=\$((var+1))" >> /root/config_ips.sh
+         - echo "done" >> /root/config_ips.sh
+         
+         - chmod +x /root/config_ips.sh
+         - sh /root/config_ips.sh
+         
+         - sudo apt-get update && sudo apt-get -y install apache2 && sudo a2enmod rewrite && systemctl restart apache2
+         - sudo apt-get -y install software-properties-common && sudo apt-get -y install python-software-properties && sudo apt-get -y install language-pack-en-base && sudo LC_ALL=en_US.UTF-8 add-apt-repository ppa:ondrej/php
+         - sudo apt-get -y install php php-curl php-intl php-gd php-mcrypt php-iconv php-xsl php-mbstring php-zip php-pdo php-xml php-json php-mysqli php-mysql php-xmlwriter php-xmlreader php-soap php-mysql libapache2-mod-php && sudo sed -i 's/128M/512M/g' /etc/php/7.0/apache2/php.ini
+         - wget -O /var/www/magento-2.1.6.tar.gz https://github.com/magento/magento2/archive/2.1.6.tar.gz && cd /var/www/
+         - tar xzvf magento-2.1.6.tar.gz && mv magento2-2.1.6 magento2
+         - rm magento-2.1.6.tar.gz
+         - sudo wget -O /usr/local/bin/composer http://getcomposer.org/composer.phar && sudo chmod +x /usr/local/bin/composer
+         - cd /var/www/magento2 && export HOME=/root && COMPOSER_HOME=/usr/local/bin/composer
+         - sudo composer install && sudo chown -R www-data:www-data /var/www
+         
+         - wget http://ftp.airnet.ne.jp/mirror/mysql/Downloads/MySQL-Cluster-7.4/mysql-cluster-gpl-7.4.11-debian7-x86_64.deb && dpkg -i mysql-cluster-gpl-7.4.11-debian7-x86_64.deb
+         
+         - echo '#!/bin/sh' >> /root/config_mysql.sh
+         - echo "mkdir /var/lib/mysql-cluster" >> /root/config_mysql.sh
+         - echo "echo \"[ndb_mgmd]\" >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "echo \"hostname=`cat /root/ManagerHost.txt`\" >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "echo \"datadir=/var/lib/mysql-cluster\" >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "echo >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "while read -r line" >> /root/config_mysql.sh
+         - echo "do" >> /root/config_mysql.sh
+         - echo "    echo \"[ndbd]\" >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "    echo \"hostname=\$line\" >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "    echo \"datadir=/usr/local/mysql/data\" >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "    echo >> /var/lib/mysql-cluster/config.ini" >> /root/config_mysql.sh
+         - echo "done < /root/NodeHosts.txt" >> /root/config_mysql.sh
+         
+         - chmod +x /root/config_mysql.sh
+         - sh /root/config_mysql.sh
+         
+         - echo "[mysqld]" >> /var/lib/mysql-cluster/config.ini
+         - echo "hostname=`cat /root/ManagerHost.txt`" >> /var/lib/mysql-cluster/config.ini 
+         
+         - /opt/mysql/server-5.6/bin/ndb_mgmd -f /var/lib/mysql-cluster/config.ini
+         - sudo systemctl enable rc-local.service
+         
+         - sed -i '14i /opt/mysql/server-5.6/bin/ndb_mgmd -f /var/lib/mysql-cluster/config.ini' /etc/rc.local
+         
+         - echo "[mysqld]" >> /etc/my.cnf
+         - echo "ndbcluster" >> /etc/my.cnf
+         - echo "ndb-connectstring=$(ifconfig $(route | grep '^default' | grep -o '[^ ]*$') | grep "inet addr" | cut -d ':' -f 2 | cut -d ' ' -f 1):1186" >> /etc/my.cnf
+         
+         - groupadd mysql
+         - useradd -r -g mysql -s /bin/false mysql
+         - mkdir -p /data/mysql
+         - mkdir /var/lib/mysql-files
+         - chown mysql:mysql /var/lib/mysql-files
+         - chown mysql:mysql /data/mysql
+         
+         - sudo /opt/mysql/server-5.6/scripts/mysql_install_db --user=mysql
+         - cp /opt/mysql/server-5.6/support-files/mysql.server /etc/init.d/mysqld
+         - systemctl enable mysqld.service
+         - systemctl start mysqld
+         - ln -s /opt/mysql/server-5.6/bin/mysql /usr/bin/
+         
+         - echo '#!/bin/sh' >> /root/setup_cluster.sh
+         - echo "value=`cat /root/node_addresses.txt`" >> /root/setup_cluster.sh
+         - echo "arr=\$(echo \$value | tr \",\" \"\n\")" >> /root/setup_cluster.sh
+         - echo "var=1" >> /root/setup_cluster.sh
+         - echo "for node in \$arr" >> /root/setup_cluster.sh
+         - echo "do" >> /root/setup_cluster.sh
+         - echo "    sshpass -p 'changeme' ssh -o StrictHostKeyChecking=no root@\$node 'rm /root/AllIps.txt /root/Node1.txt'" >> /root/setup_cluster.sh
+         - echo "    sshpass -p 'changeme' ssh -o StrictHostKeyChecking=no root@\$node '/opt/mysql/server-5.6/bin/ndbd'" >> /root/setup_cluster.sh
+         - echo "    rm /root/Node\$var.txt /root/NodeHost\$var.txt" >> /root/setup_cluster.sh
+         - echo "    var=\$((var+1))" >> /root/setup_cluster.sh
+         - echo "done" >> /root/setup_cluster.sh
+         
+         - chmod +x /root/setup_cluster.sh
+         - sh /root/setup_cluster.sh
+         
+         - rm /root/Manager.txt /root/AllIps.txt /root/setup_cluster.sh /root/config_ips.sh /root/config_mysql.sh /root/node_addresses.txt /root/ManagerHost.txt /root/NodeHosts.txt
+          
+         - cd /root
+         - openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out magentocertificate.crt -keyout magentokey.key -subj "/C=US/ST=California/L=PA/O=VMWARE/OU=VMWARE/CN=${input.domain_server}"
+         - chmod 400 /root/magentokey.key
+         - mv magentocertificate.crt /etc/ssl/certs/magentocertificate.crt && mv magentokey.key /etc/ssl/private/magentokey.key
+         
+         - sed -i '14i  ServerName ${input.domain_server}' /etc/apache2/sites-enabled/000-default.conf
+         - sed -i '15i  ServerAlias www.${input.domain_server}.com' /etc/apache2/sites-enabled/000-default.conf
+         - sed -i '16i   DocumentRoot /var/www/magento2' /etc/apache2/sites-enabled/000-default.conf         
+         - sed -i '17i  <Directory /var/www/magento2>' /etc/apache2/sites-enabled/000-default.conf
+         - sed -i '18i  Options FollowSymLinks' /etc/apache2/sites-enabled/000-default.conf
+         - sed -i '19i  Require all granted' /etc/apache2/sites-enabled/000-default.conf 
+         - sed -i '20i  AllowOverride all' /etc/apache2/sites-enabled/000-default.conf  
+         - sed -i '21i  </Directory>' /etc/apache2/sites-enabled/000-default.conf   
+         - sed -i '22i  ErrorLog /var/log/apache2/error.log' /etc/apache2/sites-enabled/000-default.conf 
+         - sed -i '23i  CustomLog /var/log/apache2/access.log combined' /etc/apache2/sites-enabled/000-default.conf
+         
+         - echo "<VirtualHost *:443>" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "SSLEngine On" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "SSLCertificateFile /etc/ssl/certs/magentocertificate.crt" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "SSLCertificateKeyFile /etc/ssl/private/magentokey.key" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "SSLCACertificateFile /etc/ssl/certs/ca-certificates.crt" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "ServerName ${input.domain_server}.com" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "ServerAlias www.${input.domain_server}.com" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "DocumentRoot /var/www/magento2" >> /etc/apache2/sites-enabled/000-default.conf         
+         - echo "<Directory /var/www/magento2>" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "Options FollowSymLinks" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "Require all granted" >> /etc/apache2/sites-enabled/000-default.conf 
+         - echo "AllowOverride all" >>/etc/apache2/sites-enabled/000-default.conf  
+         - echo "</Directory>" >> /etc/apache2/sites-enabled/000-default.conf   
+         - echo "ErrorLog /var/log/apache2/error.log" >> /etc/apache2/sites-enabled/000-default.conf 
+         - echo "CustomLog /var/log/apache2/access.log combined" >> /etc/apache2/sites-enabled/000-default.conf
+         - echo "</VirtualHost>" >> /etc/apache2/sites-enabled/000-default.conf
+         
+         - echo '#!/bin/sh' > tempshell.sh
+         - echo "sudo sed -i '/<Directory \/var\/www\//,/AllowOverride None/ {" >> tempshell.sh
+         - echo "s/None/all/g" >> tempshell.sh
+         - echo "}' /etc/apache2/apache2.conf" >>tempshell.sh
+         - chmod 755 tempshell.sh 
+         - sh tempshell.sh
+         - a2enmod ssl
+         - systemctl restart apache2
+         
+         - mysql -e "CREATE DATABASE magento2;"
+         - mysql -e "CREATE USER '${input.mysql_username}'@'localhost' IDENTIFIED BY 'changeme';"
+         - mysql -e "GRANT ALL PRIVILEGES ON magento2.* TO '${input.mysql_username}'@'localhost' IDENTIFIED BY 'changeme';"
+         - mysql -e "FLUSH PRIVILEGES;"
+         
+         - cd /var/www/magento2
+         - echo '#!/bin/sh' > tempshell.sh
+         - echo myvar=`ifconfig $(route | grep '^default' | grep -o '[^ ]*$') | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1` >> tempshell.sh 
+         - echo 'sudo php /var/www/magento2/bin/magento setup:install --db-host=127.0.0.1 --db-name=magento2 --db-user=${input.mysql_username} --db-password=changeme --admin-email=admin@tempmail.com --admin-firstname=adminFristName --admin-lastname=adminLastName --admin-password=changeme@123 --admin-user=${input.admin_username} --backend-frontname=${input.admin_username} --base-url=http://${input.domain_server} --base-url-secure=https://${input.domain_server} --currency=EUR --language=en_US --session-save=files --timezone=Europe/Berlin --use-rewrites=1' >> tempshell.sh
+         - echo 'sudo chown -R www-data:www-data /var/www/' >> tempshell.sh
+         - chmod 755 tempshell.sh
+         - cd /var/www/magento2
+         - sh tempshell.sh && systemctl restart apache2 && rm -rf tempshell.sh 
+      networks:
+        - name: '${Magento_Network.name}'
+      constraints:
+        - tag: '${input.region}'
+  Magento_Network:
+    type: Cloud.Network
+    properties:
+      name: cloud_network
+      networkType: existing
+      constraints:
+        - tag: '${input.network}'
