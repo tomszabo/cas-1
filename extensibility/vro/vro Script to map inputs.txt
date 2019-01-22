@@ -1,0 +1,15 @@
+//Log all properties
+System.log("inputProperties: ");
+System.log(JSON.stringify(inputProperties, null, 2))
+
+//Map custom properties
+customProps = inputProperties.get("customProperties")
+
+//Map Properties to var
+var ip = inputProperties.get("addresses");
+var image = customProps.get("image");
+
+//Log mapped var 
+System.log("Mapped Properties: ");
+System.log(ip)
+System.log(image)
