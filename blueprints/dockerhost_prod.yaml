@@ -35,7 +35,7 @@ resources:
         package_upgrade: all
         hostname: '${input.hostname}'
         runcmd:
-          - echo root:'${input.rootpassword}'|sudo chpasswd
+         - echo root:'${input.rootpassword}'|sudo chpasswd
          - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
          - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
          - systemctl restart sshd
