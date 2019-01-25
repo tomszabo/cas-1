@@ -6,6 +6,9 @@ resources:
     type: Cloud.Machine
     properties:
       cloudConfig: |
+        package:
+         - wget
+         - git
         runcmd:
           - apt install -y nginx 
           - /usr/bin/git clone https://github.com/rhjensen79/cas-demo-application-own.git /tmp/cas-demo-application
