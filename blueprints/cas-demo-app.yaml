@@ -22,7 +22,7 @@ resources:
           - /bin/cp -R /tmp/cas-demo-application/dist/cmbu-demo-application/* /usr/share/nginx/html/
           - /bin/sed -i "s@root /var/www/html@root /usr/share/nginx/html@" /etc/nginx/sites-available/default
           - /bin/systemctl restart nginx
-      image: Ubuntu
+      image: ubuntu
       flavor: small
       constraints:
-        - tag: 'cloud:vsphere'
+        - tag: 'region:frankfurt'
