@@ -7,14 +7,13 @@ resources:
     properties:
       cloudConfig: |
         package:
-         - wget
-         - git
+         - nginx
         runcmd:
           - echo root:changeme |sudo chpasswd
           - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
           - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
           - systemctl restart sshd
-          - apt install -y nginx 
+          - apt install nginx -y 
           - /usr/bin/git clone https://github.com/rhjensen79/cas-demo-application-own.git /tmp/cas-demo-application
           - /bin/rm -rf /etc/nginx/conf.d/*
           - /bin/rm -rf /usr/share/nginx/html/*
@@ -27,6 +26,6 @@ resources:
           - /bin/sed -i "s@root /var/www/html@root /usr/share/nginx/html@" /etc/nginx/sites-available/default
           - /bin/systemctl restart nginx
       image: ubuntu
-      flavor: small
+      flavor: large
       constraints:
         - tag: 'region:frankfurt'
