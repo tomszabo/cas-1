@@ -22,4 +22,4 @@ resources:
       image: Ubuntu
       flavor: small
       constraints:
-        - tag: 'cloud:vsphere'
+        - tag: 'region:frankfurt'
