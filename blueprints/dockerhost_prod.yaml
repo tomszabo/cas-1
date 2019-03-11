@@ -1,0 +1,59 @@
+inputs:
+  hostname:
+    type: string
+    description: Hostname
+    title: Hostname for VM
+  rootpassword:
+    type: string
+    encrypted: true
+    title: Root Password
+    description: Root Password
+  notify:
+   type: string
+   title: Notify
+   description: Notify when deployment is finished
+   enum:
+    - 'yes'
+    - 'no'
+   default: 'yes'
+resources:
+  Cloud_Machine_1:
+    type: Cloud.Machine
+    properties:
+      notify: '${input.notify}'
+      image: ubuntu
+      flavor: medium
+      networks:
+        - name: '${Cloud_Network_1.name}'
+      cloudConfigSettings:
+        phoneHomeShouldWait: 'yes'
+      cloudConfig: |
+        #cloudconfig
+        repo_update: true
+        repo_upgrade: all
+        package_update: true
+        package_upgrade: all
+        hostname: '${input.hostname}'
+        runcmd:
+         - echo root:'${input.rootpassword}'|sudo chpasswd
+         - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+         - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+         - systemctl restart sshd
+         - apt-get install curl apt-transport-https ca-certificates software-properties-common -y
+         - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+         - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable" | tee /etc/apt/sources.list.d/docker.list
+         - apt-get update
+         - apt-get install -y docker-ce
+         - systemctl start docker.service
+         - systemctl enable docker.service
+         - mkdir /etc/systemd/system/docker.service.d/
+         - echo "[Service]" >> /etc/systemd/system/docker.service.d/docker.conf
+         - echo "ExecStart=" >> /etc/systemd/system/docker.service.d/docker.conf
+         - echo "ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2375 -H unix://var/run/docker.sock" >> /etc/systemd/system/docker.service.d/docker.conf
+         - sudo systemctl daemon-reload
+         - sudo systemctl restart docker
+  Cloud_Network_1:
+    type: Cloud.Network
+    properties:
+      name: vm_network
+      networkType: existing

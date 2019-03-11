@@ -1,0 +1,31 @@
+name: CAS Demo application
+version: v4
+inputs: {}
+resources:
+  Cloud_Machine_1:
+    type: Cloud.Machine
+    properties:
+      cloudConfig: |
+        package:
+         - nginx
+        runcmd:
+          - echo root:changeme |sudo chpasswd
+          - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g'  /etc/ssh/sshd_config
+          - sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/g'  /etc/ssh/sshd_config
+          - systemctl restart sshd
+          - apt install nginx -y 
+          - /usr/bin/git clone https://github.com/rhjensen79/cas-demo-application-own.git /tmp/cas-demo-application
+          - /bin/rm -rf /etc/nginx/conf.d/*
+          - /bin/rm -rf /usr/share/nginx/html/*
+          - /usr/bin/curl -sL https://deb.nodesource.com/setup_10.x | sudo bash -
+          - /usr/bin/apt install nodejs -y
+          - /usr/bin/npm install -g @angular/cli
+          - cd /tmp/cas-demo-application && /usr/bin/npm install
+          - /usr/bin/ng build --prod
+          - /bin/cp -R /tmp/cas-demo-application/dist/cmbu-demo-application/* /usr/share/nginx/html/
+          - /bin/sed -i "s@root /var/www/html@root /usr/share/nginx/html@" /etc/nginx/sites-available/default
+          - /bin/systemctl restart nginx
+      image: ubuntu
+      flavor: large
+      constraints:
+        - tag: 'region:frankfurt'
