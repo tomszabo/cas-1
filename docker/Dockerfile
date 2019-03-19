@@ -1,3 +1,4 @@
+#Dockerfile used for auto build https://hub.docker.com/r/robertjensen/cas
 FROM ubuntu:latest
 RUN apt-get update -y
 RUN apt-get upgrade -y
