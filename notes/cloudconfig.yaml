@@ -1,0 +1,8 @@
+cloudConfigSettings:
+# enable phone_home integration
+phoneHomeShouldWait: true
+# default timeout interval is 10 minutes
+phoneHomeTimeoutSeconds: 600
+# default value is to fail the request when timeout occurs
+phoneHomeFailOnTimeout: true
+
