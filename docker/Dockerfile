@@ -6,4 +6,6 @@ RUN apt-get install curl -y
 RUN apt-get install python -y
 RUN apt-get install sshpass -y
 RUN apt-get install wget -y
-
+RUN apt-get install unzip -y
+RUN wget https://releases.hashicorp.com/packer/1.3.5/packer_1.3.5_linux_amd64.zip
+RUN unzip *
