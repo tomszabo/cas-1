@@ -6,4 +6,4 @@ RUN apt-get install curl -y
 RUN apt-get install python -y
 RUN apt-get install sshpass -y
 RUN apt-get install wget -y
-RUN apt-get install packer -y
+
