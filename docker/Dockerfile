@@ -14,4 +14,3 @@ RUN unzip *.zip
 RUN rm packer_1.3.5_linux_amd64.zip
 RUN mv packer /usr/sbin
 RUN apt install jq -y
-RUN apt install nano -y
